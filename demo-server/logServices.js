@@ -1,6 +1,7 @@
 ﻿//#region Internal Methods
 
 function log() {
+    console.log("log", JSON.stringify(arguments))
     var formattedSessionLogs = getFormattedSessionLogs.apply(arguments);
     formattedSessionLogs.map(function (value) { console.log(value); });
 }

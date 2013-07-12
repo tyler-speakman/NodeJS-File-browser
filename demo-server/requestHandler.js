@@ -13,6 +13,7 @@ var readDir = function (response, request) {
 
     //#endregion
 
+    logServices.enableLogging();
     logServices.log("readDir()", request.url);
 
     var parameters = qs.parse(request.url.split("?")[1]);
@@ -22,6 +23,8 @@ var readDir = function (response, request) {
         path = name + "\\";
         name = "";
     }
+
+    logServices.log(JSON.stringify({ path: path, name: name }))
 
     // Validate parameters
     if (!parametersAreValid(path, name, depth)) {

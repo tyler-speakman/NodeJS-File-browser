@@ -11,43 +11,45 @@ function readdirRecursive(parentEntity, depth, err, callback) {
 
     if (err) { callback(err, null); return; }
 
-    if (depth >= 0) {
-        depth--;
-        var fullPathOfParent = path.join(parentEntity.path, parentEntity.name);
-        fs.readdir(fullPathOfParent, function (err, entities) {
-            logServices.log(stringFormatServices.pad(">> ", 2), 2, "fs.readdir()", "CALLBACK", (err == undefined || err == null), err, entities, fullPathOfParent);
-            if (err && !(err.code == "ENOTDIR" || err.code === "EPERM" || err.code === "ENOENT")) {
-                callback(err, null); return;
-            }
-
-            // If we have children, then traverse them
-            if (entities) {
-                parentEntity.children = entities.map(function (nameOfChild) { return { path: fullPathOfParent + "\\", name: nameOfChild }; });
-            }
-
-            var applyEntityUpDirFunction = function (entity, done) { applyEntityUpDir(entity, done); };
-            var applyEntityStatsFunction = function (entity, done) { applyEntityStats(entity, done); };
-            var applyEntityChildrenFunction = function (entity, done) { applyEntityChildren(entity, depth, done); };
-            async.parallel(
-                [
-                    applyEntityUpDirFunction.bind(null, parentEntity),
-                    applyEntityStatsFunction.bind(null, parentEntity),
-                    applyEntityChildrenFunction.bind(null, parentEntity)
-                ],
-                function (err, results) {
-                    logServices.log(stringFormatServices.pad(">> ", 4), 4, "readdirRecursive()", "PROCESSING", (err == undefined || err == null), err, results);
-                    if (err) { callback(err, null); return; }
-
-                    callback(null, parentEntity);
-                }
-            );
-        });
-    } else {
+    if (depth < 0) {
         logServices.log(stringFormatServices.pad(">> ", 2), 2, "readdirRecursive()", "PAST DEPTH");
 
         // If we have reached our maximum depth, then return immediately with an empty "empty" traversal
-        callback(null, parentEntity);
+        callback(null, parentEntity); return;
     }
+
+    depth--;
+    var fullPathOfParent = path.join(parentEntity.path, parentEntity.name);
+    fs.readdir(fullPathOfParent, function (err, entities) {
+        logServices.log(stringFormatServices.pad(">> ", 2), 2, "fs.readdir()", "CALLBACK", (err == undefined || err == null), err, entities, fullPathOfParent);
+        if (err && !(err.code == "ENOTDIR" || err.code === "EPERM" || err.code === "ENOENT")) {
+            callback(err, null); return;
+        }
+
+        // If we have children, then traverse them
+        if (entities) {
+            parentEntity.children = entities.map(function (nameOfChild) { return { path: fullPathOfParent + "\\", name: nameOfChild }; });
+        }
+
+        var applyEntityUpDirFunction = function (entity, done) { applyEntityUpDir(entity, done); };
+        var applyEntityStatsFunction = function (entity, done) { applyEntityStats(entity, done); };
+        var applyEntityChildrenFunction = function (entity, done) { applyEntityChildren(entity, depth, done); };
+        async.parallelLimit(
+            [
+                applyEntityUpDirFunction.bind(null, parentEntity),
+                applyEntityStatsFunction.bind(null, parentEntity),
+                applyEntityChildrenFunction.bind(null, parentEntity)
+            ],
+            1,
+            function (err, results) {
+                logServices.log(stringFormatServices.pad(">> ", 4), 4, "readdirRecursive()", "PROCESSING", (err == undefined || err == null), err, results);
+                if (err) { callback(err, null); return; }
+
+                callback(null, parentEntity); return;
+            }
+        );
+    });
+      
 }
 
 function applyEntityChildren(entity, depth, callback) {
